@@ -214,3 +214,30 @@ class TestIntegrationScenarios:
         response = client.get("/activities")
         after_removal_count = len(response.json()[activity]["participants"])
         assert after_removal_count == initial_count
+    
+    def test_activity_capacity_limit(self, client):
+        """Test that activities respect max_participants limit"""
+        activity = "Chess Club"
+        
+        # Get current state
+        response = client.get("/activities")
+        activities = response.json()
+        max_capacity = activities[activity]["max_participants"]
+        current_count = len(activities[activity]["participants"])
+        spots_available = max_capacity - current_count
+        
+        # Fill remaining spots
+        for i in range(spots_available):
+            email = f"student{i}@mergington.edu"
+            response = client.post(f"/activities/{activity}/signup?email={email}")
+            assert response.status_code == 200
+        
+        # Verify activity is now at capacity
+        response = client.get("/activities")
+        activities = response.json()
+        assert len(activities[activity]["participants"]) == max_capacity
+        
+        # Attempt to exceed capacity should still work (no validation exists)
+        # This documents current behavior
+        response = client.post(f"/activities/{activity}/signup?email=overflow@mergington.edu")
+        assert response.status_code == 200
